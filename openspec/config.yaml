@@ -1,0 +1,29 @@
+schema: spec-driven
+
+# Project context (optional)
+# This is shown to AI when creating artifacts.
+# Add your tech stack, conventions, style guides, domain knowledge, etc.
+context: |
+  Tech stack: Express, OpenAPI, BullMQ, Redis, MongoDB
+
+  Conventions:
+  - Use conventional commits (feat:, fix:, chore:, docs:, refactor:)
+  - TypeScript strict mode enabled; prefer interfaces over types
+  - RESTful API design with OpenAPI 3.1 specs; controllers delegate to services
+  - MongoDB for storage (users, posts, feeds, follows)
+  - Redis for caching and BullMQ-backed job queues; jobs must be idempotent
+  - Graceful shutdown: close connections in order (HTTP → queues → DB)
+  - Errors via custom AppError class; catch async errors with express-async-errors
+  - Environment variables validated via zod schemas at startup
+  - Pagination via cursor-based approach (not offset) for feeds and lists
+  - ESLint + Prettier for formatting; lint before commit enforced
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always include a "Non-goals" section
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
