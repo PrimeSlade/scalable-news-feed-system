@@ -19,23 +19,12 @@ app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   res.status(500).json({ error: "Internal server error" });
 });
 
-async function main() {
-  await prisma.$connect();
-  console.log("Connected to MongoDB");
-
-  app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
-}
-
-main().catch((e) => {
-  console.error("Failed to start server:", e);
-  process.exit(1);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
 
-process.on("SIGTERM", async () => {
-  await prisma.$disconnect();
-  process.exit(0);
+process.on("SIGTERM", () => {
+  prisma.$disconnect().then(() => process.exit(0));
 });
 
 export default app;
