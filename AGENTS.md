@@ -49,6 +49,7 @@ src/
 - **Unused vars**: prefix with `_` (e.g. `_req`, `_next`) — tsconfig has `noUnusedLocals`/`noUnusedParameters`
 - **Module system**: CommonJS (`"type": "commonjs"` in package.json) — use `import`/`export` with TypeScript, but no ESM
 - **Prettier**: double quotes, semicolons, 2-space, trailing commas
+- **No em dashes**: use `--` instead of `—` in commit messages, notes, and prose
 
 ## Database
 
