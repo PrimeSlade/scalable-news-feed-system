@@ -27,7 +27,8 @@
   "homepage": "https://github.com/PrimeSlade/scalable-news-feed-system#readme",
   "dependencies": {
     "@prisma/client": "^6.19.3",
-    "express": "^5.2.1"
+    "express": "^5.2.1",
+    "ioredis": "^5.11.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -41,6 +41,16 @@ src/
 
 **Module pattern**: `controller` validates input → calls `service` (business logic / Prisma queries) → returns via response helpers. `routes` wires endpoints to controllers.
 
+## Dependency decisions
+
+Before adding a new npm package, always check in this order:
+
+1. **`package.json`** -- see what's already installed
+2. **`.agents/skills/`** -- some skills reference preferred libraries (e.g. `nodejs-backend-patterns` prefers `ioredis` over `redis`)
+3. **`openspec/config.yaml`** -- the project's tech stack spec may mandate a specific choice
+
+Picking the wrong library without checking these sources can lead to rewrites. When in doubt, ask the user.
+
 ## Key conventions
 
 - **PrismaClient**: import `{ prisma }` from `src/lib/prisma.ts` — never create a new instance
