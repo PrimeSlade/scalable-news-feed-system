@@ -26,7 +26,10 @@ Husky + lint-staged auto-runs `prettier --write` then `eslint --fix` on staged `
 ```
 src/
 ├── index.ts              # Express entry point (connect Prisma, health, 404, error handler)
-├── lib/prisma.ts         # Shared PrismaClient singleton — ALWAYS import from here
+├── lib/
+│   ├── prisma.ts         # Shared PrismaClient singleton — ALWAYS import from here
+│   ├── redis.ts          # Shared Redis singleton — ALWAYS import from here
+│   └── queue.ts          # BullMQ queues & workers with graceful shutdown
 ├── middleware/
 │   ├── error-handler.ts  # AppError-aware error handler (not yet wired into index.ts)
 │   └── ...               # (asyncHandler lives in utils/)
@@ -50,6 +53,29 @@ Before adding a new npm package, always check in this order:
 3. **`openspec/config.yaml`** -- the project's tech stack spec may mandate a specific choice
 
 Picking the wrong library without checking these sources can lead to rewrites. When in doubt, ask the user.
+
+### bullmq ↔ ioredis version alignment
+
+`bullmq` bundles its own `ioredis`. The project-level `ioredis` version **must match** the version bundled by bullmq, otherwise TypeScript will fail with structural type mismatches (e.g. `protected` property differences between versions).
+
+Check the bundled version before bumping `ioredis`:
+
+```sh
+node -e "console.log(require('bullmq/node_modules/ioredis/package.json').version)"
+```
+
+If they drift, reinstall the matching version:
+
+```sh
+npm install ioredis@<version>
+npm ls ioredis   # verify deduped — both should show the same version
+```
+
+## Skills
+
+When starting work on a task that matches an available skill's scope, **call the skill first** before writing code. Skills contain project-specific patterns, up-to-date API references, and anti-pitfalls (e.g. `bullmq-specialist` covers the exact `ioredis` + `maxRetriesPerRequest` setup needed here). Running without the skill can lead to rewrites.
+
+Available skills are listed in the system prompt's `<available_skills>` block. Trigger on mentions of: bullmq, queue, background job, worker, Prisma query patterns, database setup, etc.
 
 ## Key conventions
 

@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from "express";
 import { prisma } from "./lib/prisma";
 import { getRedis, disconnectRedis } from "./lib/redis";
+import { shutdownQueues } from "./lib/queue";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,8 +28,8 @@ app.listen(PORT, () => {
 getRedis();
 
 process.on("SIGTERM", () => {
-  Promise.all([prisma.$disconnect(), disconnectRedis()]).then(() =>
-    process.exit(0),
+  Promise.all([prisma.$disconnect(), shutdownQueues(), disconnectRedis()]).then(
+    () => process.exit(0),
   );
 });
 

@@ -1,6 +1,12 @@
 {
   "version": 1,
   "skills": {
+    "bullmq-specialist": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "skillPath": "skills/bullmq-specialist/SKILL.md",
+      "computedHash": "1012ef335f73d4469d0a00dd9189923c9fa666c3a21e032b5f84733c360aa94a"
+    },
     "git-commit": {
       "source": "github/awesome-copilot",
       "sourceType": "github",
