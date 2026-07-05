@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import * as feedService from "./feed.service";
-import { created } from "../../utils/response";
+import { respond } from "../../utils/response";
 import { ValidationError } from "../../utils/errors";
 
 export async function createPost(req: Request, res: Response): Promise<void> {
@@ -11,5 +11,5 @@ export async function createPost(req: Request, res: Response): Promise<void> {
   }
 
   const post = await feedService.createPost({ content, authorId });
-  created(res, post);
+  respond(res, post, { statusCode: 201 });
 }

@@ -1,23 +1,30 @@
 import { Response } from "express";
 
-export function success<T>(res: Response, data: T, statusCode = 200) {
-  return res.status(statusCode).json({ status: "success", data });
+interface CursorPagination {
+  limit: number;
+  hasMore: boolean;
 }
 
-export function created<T>(res: Response, data: T) {
-  return success(res, data, 201);
+interface RespondOptions {
+  statusCode?: number;
+  pagination?: CursorPagination;
 }
 
-export function paginated<T>(
+export function respond<T>(
   res: Response,
-  data: T[],
-  page: number,
-  limit: number,
-  total: number,
+  data: T,
+  options: RespondOptions = {},
 ) {
-  return res.json({
+  const { statusCode = 200, pagination } = options;
+
+  const body: Record<string, unknown> = {
     status: "success",
     data,
-    pagination: { page, limit, total, pages: Math.ceil(total / limit) },
-  });
+  };
+
+  if (pagination) {
+    body.pagination = pagination;
+  }
+
+  return res.status(statusCode).json(body);
 }
