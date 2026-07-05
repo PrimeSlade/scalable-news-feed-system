@@ -12,6 +12,7 @@ export function errorHandler(
       status: "error",
       message: err.message,
     });
+    return;
   }
 
   console.error("Unexpected error:", err);

@@ -1,7 +1,9 @@
-import express, { Request, Response, NextFunction } from "express";
+import express, { Request, Response } from "express";
 import { prisma } from "./lib/prisma";
 import { getRedis, disconnectRedis } from "./lib/redis";
 import { shutdownQueues } from "./lib/queue";
+import { errorHandler } from "./middleware/error-handler";
+import feedRoutes from "./modules/feed/feed.routes";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -12,25 +14,28 @@ app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
 
+app.use("/v1/feed", feedRoutes);
+
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Not found" });
 });
 
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error(err);
-  res.status(500).json({ error: "Internal server error" });
-});
+app.use(errorHandler);
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+if (process.env.NODE_ENV !== "test") {
+  getRedis();
 
-getRedis();
+  const server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+  });
 
-process.on("SIGTERM", () => {
-  Promise.all([prisma.$disconnect(), shutdownQueues(), disconnectRedis()]).then(
-    () => process.exit(0),
-  );
-});
+  process.on("SIGTERM", async () => {
+    console.log("SIGTERM received, shutting down gracefully...");
+    await shutdownQueues();
+    await prisma.$disconnect();
+    await disconnectRedis();
+    server.close(() => process.exit(0));
+  });
+}
 
 export default app;

@@ -8,16 +8,44 @@ generator client {
 }
 
 model User {
-  id    String @id @default(auto()) @map("_id") @db.ObjectId
-  email String @unique
-  name  String?
-  posts Post[]
+  id             String   @id @default(auto()) @map("_id") @db.ObjectId
+  username       String   @unique
+  displayName    String
+  avatarUrl      String?
+  followersCount Int      @default(0) // denormalized — gates the celebrity fan-out threshold
+  followingCount Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  posts      Post[]
+  following  Follow[] @relation("Follower")
+  followedBy Follow[] @relation("Followee")
+
+  @@index([followersCount])
+  @@map("users")
 }
 
 model Post {
-  id       String @id @default(auto()) @map("_id") @db.ObjectId
-  title    String
-  content  String
-  author   User   @relation(fields: [authorId], references: [id])
-  authorId String @db.ObjectId
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  authorId  String   @db.ObjectId
+  author    User     @relation(fields: [authorId], references: [id])
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([authorId, createdAt])
+  @@map("posts")
+}
+
+model Follow {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  followerId String   @db.ObjectId
+  followeeId String   @db.ObjectId
+  follower   User     @relation("Follower", fields: [followerId], references: [id])
+  followee   User     @relation("Followee", fields: [followeeId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([followerId, followeeId])
+  @@index([followeeId]) // write path: "get friends id" — who follows this author
+  @@index([followerId]) // read path: who does this user follow (for celebrity pull)
+  @@map("follows")
 }

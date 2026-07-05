@@ -1,5 +1,6 @@
 import { Queue, Worker, Job } from "bullmq";
 import { getRedis } from "./redis";
+import { prisma } from "./prisma";
 
 const connection = getRedis();
 
@@ -16,11 +17,43 @@ export const feedGenerationQueue = new Queue("feed-generation", {
   },
 });
 
+export async function processFanOutJob(job: Job): Promise<void> {
+  const { postId, authorId, createdAt } = job.data;
+
+  const follows = await prisma.follow.findMany({
+    where: { followeeId: authorId },
+    select: { followerId: true },
+  });
+
+  const followerIds: string[] = follows.map((f) => f.followerId);
+  followerIds.push(authorId);
+
+  const redis = getRedis();
+
+  const pipeline = redis.pipeline();
+  for (const followerId of followerIds) {
+    pipeline.zadd(followerId, createdAt, postId);
+    pipeline.zcard(followerId);
+  }
+  const results = await pipeline.exec();
+
+  if (!results) return;
+
+  const trimPipeline = redis.pipeline();
+  for (let i = 0; i < followerIds.length; i++) {
+    const fid = followerIds[i]!;
+    const zcardResult = results[i * 2 + 1];
+    const count = zcardResult?.[1] as number | undefined;
+    if (count && count > 1000) {
+      trimPipeline.zremrangebyrank(fid, 0, count - 1001);
+    }
+  }
+  await trimPipeline.exec();
+}
+
 export const feedGenerationWorker = new Worker(
   "feed-generation",
-  async (job: Job) => {
-    console.log(`Processing feed-generation job ${job.id}`, job.data);
-  },
+  processFanOutJob,
   {
     connection,
     concurrency: 5,
