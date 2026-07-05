@@ -1,18 +1,16 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("../../lib/prisma", () => ({
-  prisma: {
-    post: { create: vi.fn() },
-    user: { findUnique: vi.fn() },
-  },
-}));
-
 vi.mock("../../lib/queue", () => ({
   feedGenerationQueue: { add: vi.fn() },
 }));
 
-import { prisma } from "../../lib/prisma";
+vi.mock("./feed.repo", () => ({
+  createPost: vi.fn(),
+  getFollowersCount: vi.fn(),
+}));
+
 import { feedGenerationQueue } from "../../lib/queue";
+import * as feedRepo from "./feed.repo";
 import * as feedService from "./feed.service";
 
 describe("feedService.createPost", () => {
@@ -33,30 +31,22 @@ describe("feedService.createPost", () => {
   });
 
   it("creates a post and enqueues fan-out for a non-celebrity user", async () => {
-    vi.mocked(prisma.post.create).mockResolvedValue(mockPost);
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      followersCount: 50,
-    } as never);
+    vi.mocked(feedRepo.createPost).mockResolvedValue(mockPost);
+    vi.mocked(feedRepo.getFollowersCount).mockResolvedValue(50);
     vi.mocked(feedGenerationQueue.add).mockResolvedValue(undefined as never);
 
     const result = await feedService.createPost(validInput);
 
-    expect(prisma.post.create).toHaveBeenCalledWith({
-      data: { content: "Hello world", authorId: "507f1f77bcf86cd799439011" },
-    });
-    expect(result).toEqual({
-      id: "507f1f77bcf86cd799439012",
-      authorId: "507f1f77bcf86cd799439011",
-      content: "Hello world",
-      createdAt: mockPost.createdAt,
-    });
+    expect(feedRepo.createPost).toHaveBeenCalledWith(
+      "Hello world",
+      "507f1f77bcf86cd799439011",
+    );
+    expect(result).toEqual(mockPost);
   });
 
-  it("trims whitespace from content", async () => {
-    vi.mocked(prisma.post.create).mockResolvedValue(mockPost);
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      followersCount: 50,
-    } as never);
+  it("trims whitespace from content before saving", async () => {
+    vi.mocked(feedRepo.createPost).mockResolvedValue(mockPost);
+    vi.mocked(feedRepo.getFollowersCount).mockResolvedValue(50);
     vi.mocked(feedGenerationQueue.add).mockResolvedValue(undefined as never);
 
     await feedService.createPost({
@@ -64,9 +54,10 @@ describe("feedService.createPost", () => {
       authorId: "507f1f77bcf86cd799439011",
     });
 
-    expect(prisma.post.create).toHaveBeenCalledWith({
-      data: { content: "Hello world", authorId: "507f1f77bcf86cd799439011" },
-    });
+    expect(feedRepo.createPost).toHaveBeenCalledWith(
+      "Hello world",
+      "507f1f77bcf86cd799439011",
+    );
   });
 
   it("throws ValidationError when content is empty string", async () => {
@@ -98,35 +89,31 @@ describe("feedService.createPost", () => {
   });
 
   it("saves post but skips fan-out for celebrity users", async () => {
-    vi.mocked(prisma.post.create).mockResolvedValue(mockPost);
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      followersCount: 10001,
-    } as never);
+    vi.mocked(feedRepo.createPost).mockResolvedValue(mockPost);
+    vi.mocked(feedRepo.getFollowersCount).mockResolvedValue(10001);
     vi.mocked(feedGenerationQueue.add).mockResolvedValue(undefined as never);
 
     const result = await feedService.createPost(validInput);
 
-    expect(prisma.post.create).toHaveBeenCalled();
+    expect(feedRepo.createPost).toHaveBeenCalled();
     expect(feedGenerationQueue.add).not.toHaveBeenCalled();
     expect(result.id).toBe("507f1f77bcf86cd799439012");
   });
 
   it("saves post but skips fan-out when author not found", async () => {
-    vi.mocked(prisma.post.create).mockResolvedValue(mockPost);
-    vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
+    vi.mocked(feedRepo.createPost).mockResolvedValue(mockPost);
+    vi.mocked(feedRepo.getFollowersCount).mockResolvedValue(null);
 
     const result = await feedService.createPost(validInput);
 
-    expect(prisma.post.create).toHaveBeenCalled();
+    expect(feedRepo.createPost).toHaveBeenCalled();
     expect(feedGenerationQueue.add).not.toHaveBeenCalled();
     expect(result.id).toBe("507f1f77bcf86cd799439012");
   });
 
   it("saves exactly 280-character content", async () => {
-    vi.mocked(prisma.post.create).mockResolvedValue(mockPost);
-    vi.mocked(prisma.user.findUnique).mockResolvedValue({
-      followersCount: 50,
-    } as never);
+    vi.mocked(feedRepo.createPost).mockResolvedValue(mockPost);
+    vi.mocked(feedRepo.getFollowersCount).mockResolvedValue(50);
     vi.mocked(feedGenerationQueue.add).mockResolvedValue(undefined as never);
 
     const content280 = "a".repeat(280);
@@ -135,6 +122,6 @@ describe("feedService.createPost", () => {
       authorId: "507f1f77bcf86cd799439011",
     });
 
-    expect(prisma.post.create).toHaveBeenCalled();
+    expect(feedRepo.createPost).toHaveBeenCalled();
   });
 });

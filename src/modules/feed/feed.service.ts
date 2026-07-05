@@ -1,7 +1,7 @@
-import { prisma } from "../../lib/prisma";
 import { feedGenerationQueue } from "../../lib/queue";
 import { ValidationError } from "../../utils/errors";
 import { CreatePostInput, PostResponse } from "./feed.types";
+import * as feedRepo from "./feed.repo";
 
 const CELEBRITY_THRESHOLD = Number(process.env.CELEBRITY_THRESHOLD) || 10000;
 
@@ -22,19 +22,11 @@ export async function createPost(
     );
   }
 
-  const post = await prisma.post.create({
-    data: {
-      content: content.trim(),
-      authorId,
-    },
-  });
+  const post = await feedRepo.createPost(content.trim(), authorId);
 
-  const author = await prisma.user.findUnique({
-    where: { id: authorId },
-    select: { followersCount: true },
-  });
+  const followersCount = await feedRepo.getFollowersCount(authorId);
 
-  if (author && author.followersCount <= CELEBRITY_THRESHOLD) {
+  if (followersCount !== null && followersCount <= CELEBRITY_THRESHOLD) {
     await feedGenerationQueue.add(
       "fan-out",
       {
@@ -46,10 +38,5 @@ export async function createPost(
     );
   }
 
-  return {
-    id: post.id,
-    authorId: post.authorId,
-    content: post.content,
-    createdAt: post.createdAt,
-  };
+  return post;
 }
