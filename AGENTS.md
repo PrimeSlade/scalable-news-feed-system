@@ -9,12 +9,15 @@ npm start             # run compiled output
 npm run lint          # ESLint on src/
 npm run format        # Prettier write on src/
 npm run format:check  # Prettier check on src/ (CI)
+npm test              # vitest run (unit + integration)
+npm run test:watch    # vitest in watch mode
+npm run test:coverage # vitest with coverage report
 ```
 
 **CI check order (also run locally before pushing):**
 
 ```sh
-npm run format:check && npm run lint && npx tsc --noEmit
+npm run format:check && npm run lint && npx tsc --noEmit && npm test
 ```
 
 ## Pre-commit hook
@@ -25,17 +28,15 @@ Husky + lint-staged auto-runs `prettier --write` then `eslint --fix` on staged `
 
 ```
 src/
-├── index.ts              # Express entry point (connect Prisma, health, 404, error handler)
+├── index.ts              # Express entry point (health, feed routes, 404, error handler, graceful shutdown)
 ├── lib/
 │   ├── prisma.ts         # Shared PrismaClient singleton — ALWAYS import from here
 │   ├── redis.ts          # Shared Redis singleton — ALWAYS import from here
-│   └── queue.ts          # BullMQ queues & workers with graceful shutdown
+│   └── queue.ts          # BullMQ queue + "feed-generation" worker with fan-out processor
 ├── middleware/
-│   ├── error-handler.ts  # AppError-aware error handler (not yet wired into index.ts)
-│   └── ...               # (asyncHandler lives in utils/)
+│   └── error-handler.ts  # AppError-aware error handler (wired into index.ts)
 ├── modules/
-│   ├── feed/             # controller, service, routes (all empty stubs)
-│   └── post/             # controller, service, routes (all empty stubs)
+│   └── feed/             # types, service, controller, routes (POST /v1/feed)
 └── utils/
     ├── async-handler.ts  # Express async wrapper: Promise.resolve(fn).catch(next)
     ├── errors.ts         # AppError hierarchy (404, 400, 401, 409)
@@ -43,6 +44,8 @@ src/
 ```
 
 **Module pattern**: `controller` validates input → calls `service` (business logic / Prisma queries) → returns via response helpers. `routes` wires endpoints to controllers.
+
+**Feed write path**: `POST /v1/feed` → save post to MongoDB → check follower count (skip fan-out for celebrities) → enqueue BullMQ `feed-generation` job → worker fans out `postId` to each follower's Redis ZSET (`{userId}` key, timestamp score).
 
 ## Dependency decisions
 
@@ -77,6 +80,16 @@ When starting work on a task that matches an available skill's scope, **call the
 
 Available skills are listed in the system prompt's `<available_skills>` block. Trigger on mentions of: bullmq, queue, background job, worker, Prisma query patterns, database setup, etc.
 
+## Diagrams
+
+Reference `diagrams/` for sequence and architecture diagrams before making design decisions:
+
+```
+diagrams/
+├── architecture/   # High-level architecture & component relationships
+└── sequence/       # Request/event flow diagrams
+```
+
 ## Key conventions
 
 - **PrismaClient**: import `{ prisma }` from `src/lib/prisma.ts` — never create a new instance
@@ -100,5 +113,7 @@ Connection string via `DATABASE_URL` in `.env` (gitignored). Default port 3000.
 ## Environment
 
 - `DATABASE_URL` — MongoDB connection string (required, in `.env`)
+- `REDIS_URL` — Redis connection string (defaults to `redis://localhost:6379`)
 - `PORT` — server port (default 3000)
-- `NODE_ENV` — set to `production` to hide error details in error handler
+- `NODE_ENV` — set to `production` to hide error details; set to `test` to skip `app.listen()` for integration tests
+- `CELEBRITY_THRESHOLD` — follower count above which fan-out is skipped (default 10000)
