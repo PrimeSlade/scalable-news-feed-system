@@ -1,9 +1,11 @@
 import express, { Request, Response } from "express";
+import swaggerUi from "swagger-ui-express";
 import { prisma } from "./lib/prisma";
 import { getRedis, disconnectRedis } from "./lib/redis";
 import { shutdownQueues } from "./lib/queue";
 import { errorHandler } from "./middleware/error-handler";
 import feedRoutes from "./modules/feed/feed.routes";
+import { swaggerSpec } from "./swagger";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,6 +15,8 @@ app.use(express.json());
 app.get("/health", (_req: Request, res: Response) => {
   res.json({ status: "ok" });
 });
+
+app.use("/api", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/v1/feed", feedRoutes);
 
