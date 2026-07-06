@@ -26,6 +26,9 @@ export async function processFanOutJob(job: Job): Promise<void> {
   });
 
   const followerIds: string[] = follows.map((f) => f.followerId);
+  // Include the author so their own post appears in future feed fetches
+  // (the API response already includes it on creation, but Redis is the
+  // source of truth for the feed when the user refreshes or re-fetches later)
   followerIds.push(authorId);
 
   const redis = getRedis();
@@ -35,7 +38,10 @@ export async function processFanOutJob(job: Job): Promise<void> {
     pipeline.zadd(followerId, createdAt, postId);
     pipeline.zcard(followerId);
   }
+
   const results = await pipeline.exec();
+
+  console.log(results);
 
   if (!results) return;
 
