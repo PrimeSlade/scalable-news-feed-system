@@ -20,37 +20,41 @@ Both are merged into one paginated feed at read time.
 
 ## Architecture
 
-```
-Client
-  |
-  v
-Server (Express)
-  |
-  |-- POST /v1/feed --> MongoDB (save post) --> BullMQ (fan-out job)
-  |                                              |
-  |                                              v
-  |                                         Worker --> GraphDB (get followers)
-  |                                              |
-  |                                              v
-  |                                         Redis (ZADD feed:{userId})
-  |
-  |-- GET /v1/me/feed --> Redis (ZREVRANGEBYSCORE feed:{userId})
-  |                         |
-  |                         v
-  |                    Redis cache (MGET post:{id})
-  |                         |
-  |                    miss? --> MongoDB (findMany)
-  |                         |
-  |                    celebrity? --> MongoDB (recent posts)
-  |                         |
-  |                         v
-  |                    merge + sort + paginate
-  |
-  v
-Response { posts, hasMore, nextCursor }
+### Write path (fan-out on write)
+
+```mermaid
+flowchart TD
+    Client -->|POST /v1/feed| Server
+    Server -->|save post| MongoDB[(MongoDB)]
+    Server -->|check followersCount| UserCheck{followersCount<br/><= 10000?}
+    UserCheck -->|Yes| BullMQ[BullMQ Queue]
+    UserCheck -->|No - celebrity| Skip[Skip fan-out]
+    BullMQ -->|deliver job| Worker
+    Worker -->|get followers| GraphDB[(MongoDB follows)]
+    Worker -->|ZADD feed:userId| RedisFanout[(Redis ZSET)]
+    Worker -->|trim to 1000| RedisFanout
+    Server -->|201 created| Client
 ```
 
-See `diagrams/` for detailed Excalidraw sequence and architecture diagrams.
+### Read path (cache-aside + celebrity pull)
+
+```mermaid
+flowchart TD
+    Client -->|GET /v1/me/feed?cursor=ts| Server
+    Server -->|ZREVRANGEBYSCORE feed:userId| RedisZSET[(Redis fan-out ZSET)]
+    RedisZSET -->|postIds| Server
+    Server -->|MGET post:id| RedisCache[(Redis feed cache)]
+    RedisCache -->|hits| Server
+    RedisCache -->|miss| MongoPosts[(MongoDB posts)]
+    MongoPosts -->|fetch + cache| RedisCache
+    Server -->|getCelebrityFollowees| MongoFollows[(MongoDB follows)]
+    MongoFollows -->|celebrity ids| Server
+    Server -->|recent posts 24h| MongoPosts
+    Server -->|merge + sort + paginate| Result[Response]
+    Result -->|posts, hasMore, nextCursor| Client
+```
+
+> Detailed editable diagrams in `diagrams/` -- open any `.excalidraw` file at [excalidraw.com](https://excalidraw.com)
 
 ## Tech stack
 
@@ -216,27 +220,66 @@ src/
 
 ### Write path (fan-out on write)
 
-1. Client sends `POST /v1/feed` with `{ authorId, content }`
-2. Server validates content (non-empty, max 280 chars), saves post to MongoDB
-3. Server checks author's `followersCount`
-   - **<= CELEBRITY_THRESHOLD**: enqueues BullMQ `fan-out` job
-   - **> CELEBRITY_THRESHOLD**: skips fan-out (celebrity -- pull on read instead)
-4. BullMQ worker picks up the job:
-   - Queries MongoDB `follows` collection for all followers
-   - Pipelines `ZADD feed:{followerId} {createdAt} {postId}` to each follower's Redis ZSET
-   - Trims each ZSET to latest 1000 entries via `ZREMRANGEBYRANK`
-   - Includes the author in their own fan-out (self-feed)
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    participant M as MongoDB
+    participant Q as BullMQ
+    participant W as Worker
+    participant R as Redis
+
+    C->>S: POST /v1/feed {authorId, content}
+    S->>S: validate (non-empty, <= 280 chars)
+    S->>M: save post
+    M-->>S: post {id, createdAt}
+    S->>M: get author followersCount
+    M-->>S: followersCount
+    alt followersCount <= 10000
+        S->>Q: enqueue fan-out job {postId, authorId, createdAt}
+        Q-->>S: ack
+        S-->>C: 201 {post}
+        Q->>W: deliver job
+        W->>M: findMany follows {followeeId: authorId}
+        M-->>W: followerIds[]
+        loop each follower
+            W->>R: ZADD feed:{followerId} {createdAt} {postId}
+        end
+        W->>R: ZREMRANGEBYRANK (trim to 1000)
+    else followersCount > 10000 (celebrity)
+        S-->>C: 201 {post}
+        Note over S,R: Fan-out skipped -- pulled on read instead
+    end
+```
 
 ### Read path (cache-aside + celebrity pull)
 
-1. Client sends `GET /v1/me/feed?userId={id}&cursor={ts}&limit=20`
-2. Server queries Redis ZSET `feed:{userId}` via `ZREVRANGEBYSCORE` (cursor-based, exclusive timestamp)
-3. Server batch-checks Redis feed cache via `MGET post:{id}` for each postId
-   - **Cache hit**: use cached post content
-   - **Cache miss**: fetch from MongoDB via `findMany`, populate Redis with TTL
-4. If user follows celebrities, pull their recent posts (last 24h) from MongoDB
-5. Merge fan-out posts + celebrity posts, sort by `createdAt` descending
-6. Return paginated response with `nextCursor` (timestamp of oldest post)
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Server
+    participant R as Redis
+    participant M as MongoDB
+
+    C->>S: GET /v1/me/feed?userId &cursor &limit
+    S->>R: ZREVRANGEBYSCORE feed:{userId} (cursor -inf LIMIT 21
+    R-->>S: [postId1, postId2, ...]
+    S->>R: MGET post:{id1} post:{id2} ...
+    R-->>S: [cached, null, cached, ...]
+    alt cache miss
+        S->>M: findMany {id: {in: missingIds}}
+        M-->>S: post documents
+        S->>R: SET post:{id} {json} EX 10800
+    end
+    S->>M: getCelebrityFollowees {followerId: userId, followersCount > 10000}
+    M-->>S: celebrityIds[]
+    alt follows celebrities
+        S->>M: findMany {authorId: in celebrityIds, createdAt >= 24h ago}
+        M-->>S: celebrity posts
+    end
+    S->>S: merge + sort by createdAt desc + slice to limit
+    S-->>C: 200 {posts, hasMore, nextCursor}
+```
 
 ## Diagrams
 
