@@ -35,8 +35,9 @@ export async function processFanOutJob(job: Job): Promise<void> {
 
   const pipeline = redis.pipeline();
   for (const followerId of followerIds) {
-    pipeline.zadd(followerId, createdAt, postId);
-    pipeline.zcard(followerId);
+    const feedKey = `feed:${followerId}`;
+    pipeline.zadd(feedKey, createdAt, postId);
+    pipeline.zcard(feedKey);
   }
 
   const results = await pipeline.exec();
@@ -48,10 +49,11 @@ export async function processFanOutJob(job: Job): Promise<void> {
   const trimPipeline = redis.pipeline();
   for (let i = 0; i < followerIds.length; i++) {
     const fid = followerIds[i]!;
+    const feedKey = `feed:${fid}`;
     const zcardResult = results[i * 2 + 1];
     const count = zcardResult?.[1] as number | undefined;
     if (count && count > 1000) {
-      trimPipeline.zremrangebyrank(fid, 0, count - 1001);
+      trimPipeline.zremrangebyrank(feedKey, 0, count - 1001);
     }
   }
   await trimPipeline.exec();

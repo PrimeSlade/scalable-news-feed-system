@@ -206,7 +206,7 @@ describe("feedService.getFeed", () => {
     await feedService.getFeed("user-1", cursor);
 
     expect(getRedis().zrevrangebyscore).toHaveBeenCalledWith(
-      "user-1",
+      "feed:user-1",
       "(1680000000000",
       "-inf",
       "WITHSCORES",
@@ -223,7 +223,7 @@ describe("feedService.getFeed", () => {
     await feedService.getFeed("user-1", undefined, 200);
 
     expect(getRedis().zrevrange).toHaveBeenCalledWith(
-      "user-1",
+      "feed:user-1",
       0,
       100,
       "WITHSCORES",
@@ -375,7 +375,7 @@ describe("feedService.getFeed", () => {
     await feedService.getFeed("user-1", cursor);
 
     expect(getRedis().zrevrangebyscore).toHaveBeenCalledWith(
-      "user-1",
+      "feed:user-1",
       "(1700000000000",
       "-inf",
       "WITHSCORES",

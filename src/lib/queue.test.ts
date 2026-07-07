@@ -94,7 +94,7 @@ describe("processFanOutJob", () => {
 
     expect(mockZadd).toHaveBeenCalledTimes(1);
     expect(mockZadd).toHaveBeenCalledWith(
-      "507f1f77bcf86cd799439002",
+      "feed:507f1f77bcf86cd799439002",
       1704067200000,
       "507f1f77bcf86cd799439001",
     );
@@ -117,7 +117,7 @@ describe("processFanOutJob", () => {
 
     expect(mockZremrangebyrank).toHaveBeenCalledTimes(1);
     expect(mockZremrangebyrank).toHaveBeenCalledWith(
-      "507f1f77bcf86cd799439010",
+      "feed:507f1f77bcf86cd799439010",
       0,
       0,
     );

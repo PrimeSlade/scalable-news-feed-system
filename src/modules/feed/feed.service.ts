@@ -128,7 +128,7 @@ async function getPostIdsFromFanOut(
 ): Promise<{ id: string; score: number }[]> {
   if (cursor !== undefined) {
     const raw = await redis.zrevrangebyscore(
-      userId,
+      `feed:${userId}`,
       "(" + cursor,
       "-inf",
       "WITHSCORES",
@@ -139,11 +139,12 @@ async function getPostIdsFromFanOut(
     return parseZrangeWithScores(raw as string[]);
   }
 
-  const raw = await redis.zrevrange(userId, 0, limit, "WITHSCORES");
+  const raw = await redis.zrevrange(`feed:${userId}`, 0, limit, "WITHSCORES");
   return parseZrangeWithScores(raw as string[]);
 }
 
 function parseZrangeWithScores(raw: string[]): { id: string; score: number }[] {
+  console.log(raw);
   const entries: { id: string; score: number }[] = [];
   for (let i = 0; i < raw.length; i += 2) {
     entries.push({ id: raw[i]!, score: Number(raw[i + 1]) });
