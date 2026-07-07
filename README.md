@@ -40,18 +40,14 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    Client -->|GET /v1/me/feed?cursor=ts| Server
-    Server -->|ZREVRANGEBYSCORE feed:userId| RedisZSET[(Redis fan-out ZSET)]
-    RedisZSET -->|postIds| Server
-    Server -->|MGET post:id| RedisCache[(Redis feed cache)]
-    RedisCache -->|hits| Server
-    RedisCache -->|miss| MongoPosts[(MongoDB posts)]
-    MongoPosts -->|fetch + cache| RedisCache
-    Server -->|getCelebrityFollowees| MongoFollows[(MongoDB follows)]
-    MongoFollows -->|celebrity ids| Server
-    Server -->|recent posts 24h| MongoPosts
-    Server -->|merge + sort + paginate| Result[Response]
-    Result -->|posts, hasMore, nextCursor| Client
+    Client -->|GET /v1/me/feed| Server
+    Server -->|get postIds| FanOut[(Redis ZSET)]
+    FanOut -->|postIds| Server
+    Server -->|hydrate posts| Cache[(Redis cache)]
+    Cache -->|miss?| DB[(MongoDB)]
+    DB -->|fetch + cache| Cache
+    Server -->|celebrity posts 24h| DB
+    Server -->|merge + sort + paginate| Client
 ```
 
 > Detailed editable diagrams in `diagrams/` -- open any `.excalidraw` file at [excalidraw.com](https://excalidraw.com)
