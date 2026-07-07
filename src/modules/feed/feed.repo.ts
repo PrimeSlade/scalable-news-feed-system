@@ -31,3 +31,60 @@ export async function getFollowersCount(
 
   return user?.followersCount ?? null;
 }
+
+export async function getPostsByIds(
+  postIds: string[],
+): Promise<PostResponse[]> {
+  if (postIds.length === 0) return [];
+
+  const posts = await prisma.post.findMany({
+    where: { id: { in: postIds } },
+  });
+
+  return posts.map((post) => ({
+    id: post.id,
+    authorId: post.authorId,
+    content: post.content,
+    createdAt: post.createdAt,
+  }));
+}
+
+export async function getCelebrityFollowees(
+  userId: string,
+  threshold: number,
+): Promise<string[]> {
+  const follows = await prisma.follow.findMany({
+    where: {
+      followerId: userId,
+      followee: { followersCount: { gt: threshold } },
+    },
+    select: { followeeId: true },
+  });
+
+  return follows.map((f) => f.followeeId);
+}
+
+export async function getCelebrityPosts(
+  celebrityIds: string[],
+  since: Date,
+  cursor?: string,
+): Promise<PostResponse[]> {
+  if (celebrityIds.length === 0) return [];
+
+  const posts = await prisma.post.findMany({
+    where: {
+      authorId: { in: celebrityIds },
+      createdAt: { gte: since },
+      ...(cursor ? { id: { lt: cursor } } : {}),
+    },
+    orderBy: { id: "desc" },
+    take: 50,
+  });
+
+  return posts.map((post) => ({
+    id: post.id,
+    authorId: post.authorId,
+    content: post.content,
+    createdAt: post.createdAt,
+  }));
+}

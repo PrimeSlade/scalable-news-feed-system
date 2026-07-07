@@ -3,6 +3,7 @@ import { Response } from "express";
 interface CursorPagination {
   limit: number;
   hasMore: boolean;
+  nextCursor?: string;
 }
 
 interface RespondOptions {
