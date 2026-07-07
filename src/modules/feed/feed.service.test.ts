@@ -194,7 +194,7 @@ describe("feedService.getFeed", () => {
   });
 
   it("uses cursor for subsequent pages", async () => {
-    const cursor = "1680000000000_post-abc";
+    const cursor = "1680000000000";
 
     vi.mocked(getRedis).mockReturnValue(
       mockRedis({
@@ -359,7 +359,7 @@ describe("feedService.getFeed", () => {
     const result = await feedService.getFeed("user-1", undefined, 1);
 
     expect(result.hasMore).toBe(true);
-    expect(result.nextCursor).toBe(`${newer.createdAt.getTime()}_${newer.id}`);
+    expect(result.nextCursor).toBe(`${newer.createdAt.getTime()}`);
   });
 
   it("round-trips composite cursor: build then parse yields same values", async () => {
@@ -371,7 +371,7 @@ describe("feedService.getFeed", () => {
     vi.mocked(feedRepo.getCelebrityFollowees).mockResolvedValue([]);
     vi.mocked(feedRepo.getCelebrityPosts).mockResolvedValue([]);
 
-    const cursor = "1700000000000_post-xyz";
+    const cursor = "1700000000000";
     await feedService.getFeed("user-1", cursor);
 
     expect(getRedis().zrevrangebyscore).toHaveBeenCalledWith(
@@ -443,7 +443,7 @@ describe("feedService.getFeed", () => {
     expect(result.nextCursor).toBeUndefined();
   });
 
-  it("passes celebrityCursor to getCelebrityPosts for ID-based pagination", async () => {
+  it("calls getCelebrityPosts without cursor (24h window only)", async () => {
     vi.mocked(getRedis).mockReturnValue(
       mockRedis({
         zrevrangebyscore: vi.fn().mockResolvedValue([]),
@@ -452,12 +452,11 @@ describe("feedService.getFeed", () => {
     vi.mocked(feedRepo.getCelebrityFollowees).mockResolvedValue(["celeb-1"]);
     vi.mocked(feedRepo.getCelebrityPosts).mockResolvedValue([]);
 
-    await feedService.getFeed("user-1", "1700000000000_post-xyz");
+    await feedService.getFeed("user-1", "1700000000000");
 
     expect(feedRepo.getCelebrityPosts).toHaveBeenCalledWith(
       ["celeb-1"],
       expect.any(Date),
-      "post-xyz",
     );
   });
 });

@@ -102,7 +102,7 @@ describe("feedController.getFeed", () => {
     });
     const req = mockReq({
       userId: "user-1",
-      cursor: "1680000000000_post-abc",
+      cursor: "1680000000000",
       limit: "10",
     });
     const res = mockRes();
@@ -111,7 +111,7 @@ describe("feedController.getFeed", () => {
 
     expect(feedService.getFeed).toHaveBeenCalledWith(
       "user-1",
-      "1680000000000_post-abc",
+      "1680000000000",
       10,
     );
   });
@@ -138,7 +138,7 @@ describe("feedController.getFeed", () => {
     vi.mocked(feedService.getFeed).mockResolvedValue({
       posts: [mockPost],
       hasMore: true,
-      nextCursor: "1680000000000_post-abc",
+      nextCursor: "1680000000000",
     });
     const req = mockReq({ userId: "user-1" });
     const res = mockRes();
@@ -150,7 +150,7 @@ describe("feedController.getFeed", () => {
         pagination: {
           limit: 1,
           hasMore: true,
-          nextCursor: "1680000000000_post-abc",
+          nextCursor: "1680000000000",
         },
       }),
     );

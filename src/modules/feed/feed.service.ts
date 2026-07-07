@@ -56,7 +56,7 @@ export async function getFeed(
 
   const redis = getRedis();
 
-  const { fanoutCursor, celebrityCursor } = parseCursor(cursor);
+  const fanoutCursor = parseCursor(cursor);
 
   const postIdsWithScores = await getPostIdsFromFanOut(
     redis,
@@ -80,7 +80,6 @@ export async function getFeed(
     celebrityPosts = await feedRepo.getCelebrityPosts(
       celebrities,
       twentyFourHoursAgo,
-      celebrityCursor,
     );
   }
 
@@ -102,22 +101,14 @@ export async function getFeed(
   };
 }
 
-function parseCursor(cursor?: string): {
-  fanoutCursor?: number;
-  celebrityCursor?: string;
-} {
-  if (!cursor) return {};
-  const parts = cursor.split("_");
-  const ts = parts[0] ? Number(parts[0]) : undefined;
-  if (ts === undefined || isNaN(ts)) return {};
-  return {
-    fanoutCursor: ts,
-    celebrityCursor: parts[1] || undefined,
-  };
+function parseCursor(cursor?: string): number | undefined {
+  if (!cursor) return undefined;
+  const ts = Number(cursor);
+  return isNaN(ts) ? undefined : ts;
 }
 
 function buildCursor(post: PostResponse): string {
-  return `${post.createdAt.getTime()}_${post.id}`;
+  return `${post.createdAt.getTime()}`;
 }
 
 async function getPostIdsFromFanOut(

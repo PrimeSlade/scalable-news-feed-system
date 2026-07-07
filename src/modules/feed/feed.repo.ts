@@ -67,7 +67,6 @@ export async function getCelebrityFollowees(
 export async function getCelebrityPosts(
   celebrityIds: string[],
   since: Date,
-  cursor?: string,
 ): Promise<PostResponse[]> {
   if (celebrityIds.length === 0) return [];
 
@@ -75,9 +74,8 @@ export async function getCelebrityPosts(
     where: {
       authorId: { in: celebrityIds },
       createdAt: { gte: since },
-      ...(cursor ? { id: { lt: cursor } } : {}),
     },
-    orderBy: { id: "desc" },
+    orderBy: { createdAt: "desc" },
     take: 50,
   });
 

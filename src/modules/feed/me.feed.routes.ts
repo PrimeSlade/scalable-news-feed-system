@@ -22,7 +22,7 @@ const router = Router();
  *         required: false
  *         schema:
  *           type: string
- *         description: Composite cursor from previous page (timestamp_postId)
+ *         description: Timestamp cursor from previous page (Unix ms)
  *       - in: query
  *         name: limit
  *         required: false
