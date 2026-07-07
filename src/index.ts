@@ -5,6 +5,7 @@ import { getRedis, disconnectRedis } from "./lib/redis";
 import { shutdownQueues } from "./lib/queue";
 import { errorHandler } from "./middleware/error-handler";
 import feedRoutes from "./modules/feed/feed.routes";
+import meFeedRoutes from "./modules/feed/me.feed.routes";
 import { swaggerSpec } from "./swagger";
 
 const app = express();
@@ -19,6 +20,7 @@ app.get("/health", (_req: Request, res: Response) => {
 app.use("/api", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 app.use("/v1/feed", feedRoutes);
+app.use("/v1/me", meFeedRoutes);
 
 app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Not found" });
