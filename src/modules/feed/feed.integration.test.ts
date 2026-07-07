@@ -3,8 +3,9 @@ import request from "supertest";
 
 vi.mock("../../lib/prisma", () => ({
   prisma: {
-    post: { create: vi.fn() },
-    user: { findUnique: vi.fn() },
+    post: { create: vi.fn(), findMany: vi.fn() },
+    user: { findUnique: vi.fn(), findMany: vi.fn() },
+    follow: { findMany: vi.fn() },
     $disconnect: vi.fn().mockResolvedValue(undefined),
   },
 }));
@@ -18,7 +19,14 @@ vi.mock("../../lib/queue", () => ({
 
 vi.mock("../../lib/redis", () => ({
   getRedis: vi.fn(() => ({
-    pipeline: vi.fn(),
+    zrevrangebyscore: vi.fn().mockResolvedValue([]),
+    zrevrange: vi.fn().mockResolvedValue([]),
+    zmscore: vi.fn().mockResolvedValue([]),
+    mget: vi.fn().mockResolvedValue([]),
+    pipeline: vi.fn(() => ({
+      set: vi.fn(),
+      exec: vi.fn().mockResolvedValue([]),
+    })),
     on: vi.fn(),
   })),
   disconnectRedis: vi.fn(),
@@ -143,5 +151,47 @@ describe("POST /v1/feed", () => {
       .expect(201);
 
     expect(feedGenerationQueue.add).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /v1/me/feed", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(prisma.follow.findMany).mockResolvedValue([]);
+  });
+
+  it("returns 400 when userId is missing", async () => {
+    const res = await request(app).get("/v1/me/feed").expect(400);
+
+    expect(res.body).toEqual({
+      status: "error",
+      message: "userId query parameter is required",
+    });
+  });
+
+  it("returns 400 for invalid limit", async () => {
+    const res = await request(app)
+      .get("/v1/me/feed")
+      .query({ userId: "user-1", limit: "0" })
+      .expect(400);
+
+    expect(res.body).toEqual({
+      status: "error",
+      message: "limit must be a positive number",
+    });
+  });
+
+  it("returns 200 with empty paginated feed when no posts", async () => {
+    const res = await request(app)
+      .get("/v1/me/feed")
+      .query({ userId: "user-1" })
+      .expect(200);
+
+    expect(res.body.status).toBe("success");
+    expect(res.body.data.posts).toEqual([]);
+    expect(res.body.pagination).toEqual({
+      limit: 0,
+      hasMore: false,
+    });
   });
 });
