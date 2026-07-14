@@ -5,6 +5,7 @@ description: Propose a new change - create it and generate all artifacts in one 
 Propose a new change - create the change and generate all artifacts in one step.
 
 I'll create a change with artifacts:
+
 - proposal.md (what & why)
 - design.md (how)
 - tasks.md (implementation steps)
@@ -20,6 +21,7 @@ When ready to implement, run /opsx-apply
 1. **If no input provided, ask what they want to build**
 
    Use the **AskUserQuestion tool** (open-ended, no preset options) to ask:
+
    > "What change do you want to work on? Describe what you want to build or fix."
 
    From their description, derive a kebab-case name (e.g., "add user authentication" → `add-user-auth`).
@@ -27,51 +29,131 @@ When ready to implement, run /opsx-apply
    **IMPORTANT**: Do NOT proceed without understanding what the user wants to build.
 
 2. **Create the change directory**
+
    ```bash
    openspec new change "<name>"
    ```
+
    This creates a scaffolded change in the planning home resolved by the CLI with `.openspec.yaml`.
 
 3. **Get the artifact build order**
+
    ```bash
    openspec status --change "<name>" --json
    ```
+
    Parse the JSON to get:
    - `applyRequires`: array of artifact IDs needed before implementation (e.g., `["tasks"]`)
    - `artifacts`: list of all artifacts with their status and dependencies
    - `planningHome`, `changeRoot`, `artifactPaths`, and `actionContext`: path and scope context. Use these instead of assuming repo-local paths.
 
-4. **Create artifacts in sequence until apply-ready**
+4. **Create artifacts in sequence with per-artifact multi-agent review**
 
    Use the **TodoWrite tool** to track progress through the artifacts.
 
    Loop through artifacts in dependency order (artifacts with no pending dependencies first):
 
    a. **For each artifact that is `ready` (dependencies satisfied)**:
-      - Get instructions:
-        ```bash
-        openspec instructions <artifact-id> --change "<name>" --json
-        ```
-      - The instructions JSON includes:
-        - `context`: Project background (constraints for you - do NOT include in output)
-        - `rules`: Artifact-specific rules (constraints for you - do NOT include in output)
-        - `template`: The structure to use for your output file
-        - `instruction`: Schema-specific guidance for this artifact type
-        - `resolvedOutputPath`: Resolved path or pattern to write the artifact
-        - `dependencies`: Completed artifacts to read for context
-      - Read any completed dependency files for context
-      - Create the artifact file using `template` as the structure and write it to `resolvedOutputPath`
-      - Apply `context` and `rules` as constraints - but do NOT copy them into the file
-      - Show brief progress: "Created <artifact-id>"
+   - Get instructions:
+     ```bash
+     openspec instructions <artifact-id> --change "<name>" --json
+     ```
+   - The instructions JSON includes:
+     - `context`: Project background (constraints for you - do NOT include in output)
+     - `rules`: Artifact-specific rules (constraints for you - do NOT include in output)
+     - `template`: The structure to use for your output file
+     - `instruction`: Schema-specific guidance for this artifact type
+     - `resolvedOutputPath`: Resolved path or pattern to write the artifact
+     - `dependencies`: Completed artifacts to read for context
+   - Read any completed dependency files for context
+   - Create the artifact file using `template` as the structure and write it to `resolvedOutputPath`
+   - Apply `context` and `rules` as constraints - but do NOT copy them into the file
+   - Show brief progress: "Created <artifact-id>"
 
-   b. **Continue until all `applyRequires` artifacts are complete**
-      - After creating each artifact, re-run `openspec status --change "<name>" --json`
-      - Check if every artifact ID in `applyRequires` has `status: "done"` in the artifacts array
-      - Stop when all `applyRequires` artifacts are done
+   b. **Spawn the matching reviewer subagent(s) for the artifact just written**
 
-   c. **If an artifact requires user input** (unclear context):
-      - Use **AskUserQuestion tool** to clarify
-      - Then continue with creation
+   Identify the artifact by its `resolvedOutputPath` and spawn the
+   corresponding review agent(s) via the Task tool. The agents are defined
+   in `.opencode/agents/` with their rules and read-only permissions baked
+   in -- the prompt only needs the file paths.
+
+   - **After `proposal.md` is written** -- spawn `spec-impact-reviewer`:
+
+     ```
+     subagent_type: "spec-impact-reviewer"
+     description: "Review proposal impact"
+     prompt: |
+       Review this proposal for scope creep, breaking changes, missing
+       migrations, and impact accuracy:
+       <proposal.md resolvedOutputPath>
+       Change directory: <changeRoot>
+     ```
+
+     Tell the user they can `<Leader>+Down` into the child session to watch.
+
+   - **After `design.md` is written** -- spawn **two** agents in a single
+     message so they run in parallel (they audit disjoint concerns):
+
+     ```
+     // call 1: architecture review
+     subagent_type: "spec-architect"
+     description: "Review design architecture"
+     prompt: |
+       Review this design for architecture quality, scalability, module
+       boundaries, and convention alignment:
+       <design.md resolvedOutputPath>
+       Proposal: <proposal.md path>
+       Change directory: <changeRoot>
+
+     // call 2: security audit
+     subagent_type: "spec-security-auditor"
+     description: "Audit design security"
+     prompt: |
+       Audit this design for security vulnerabilities, auth gaps, data
+       exposure, input validation, and configuration risks:
+       <design.md resolvedOutputPath>
+       Proposal: <proposal.md path>
+       Change directory: <changeRoot>
+     ```
+
+     Tell the user they can `<Leader>+Down` into either child session, and
+     use `Right`/`Left` to cycle between them.
+
+   - **After `tasks.md` is written** -- no proposal-time review spawn.
+     The `/opsx-apply` flow performs its own runtime dependency check at
+     apply time (file overlap, symbol import, cross-reference cues) to
+     decide serial vs pipeline mode. The apply-time check is the source
+     of truth, so a pre-computed task graph is not required.
+
+   - **For any other artifact** (e.g. delta spec) -- no review spawn.
+
+   c. **Process review findings**
+
+   When the reviewer returns, show its findings to the user grouped by
+   CRITICAL / MINOR / SUGGESTION (the `*-reviewer` agents format output
+   this way).
+
+   - **CRITICAL issues**: fix them by editing the artifact before
+     proceeding to the next artifact. Do not let issues accumulate.
+   - **MINOR / SUGGESTION**: note them and continue -- optionally
+     batch-fix at the end.
+   - **No issues**: proceed to the next artifact.
+
+   For the parallel pair (`spec-architect` + `spec-security-auditor`):
+   wait for both to return, merge their findings by severity, then fix
+   CRITICALs from both before proceeding. The same `design.md` file is
+   under review -- fix findings in a single Edit pass to avoid conflicts.
+
+   d. **Continue until all `applyRequires` artifacts are complete**
+   - After creating + reviewing each artifact, re-run
+     `openspec status --change "<name>" --json`
+   - Check if every artifact ID in `applyRequires` has `status: "done"` in
+     the artifacts array
+   - Stop when all `applyRequires` artifacts are done (and reviewed)
+
+   e. **If an artifact requires user input** (unclear context):
+   - Use **AskUserQuestion tool** to clarify
+   - Then continue with creation
 
 5. **Show final status**
    ```bash
@@ -81,9 +163,11 @@ When ready to implement, run /opsx-apply
 **Output**
 
 After completing all artifacts, summarize:
+
 - Change name and location
 - List of artifacts created with brief descriptions
-- What's ready: "All artifacts created! Ready for implementation."
+- Review summary: which agents reviewed which artifacts, how many CRITICAL/MINOR/SUGGESTION found, all CRITICALs fixed
+- What's ready: "All artifacts created and reviewed! Ready for implementation."
 - Prompt: "Run `/opsx-apply` to start implementing."
 
 **Artifact Creation Guidelines**
@@ -97,8 +181,13 @@ After completing all artifacts, summarize:
   - These guide what you write, but should never appear in the output
 
 **Guardrails**
+
 - Create ALL artifacts needed for implementation (as defined by schema's `apply.requires`)
 - Always read dependency artifacts before creating a new one
 - If context is critically unclear, ask the user - but prefer making reasonable decisions to keep momentum
 - If a change with that name already exists, ask if user wants to continue it or create a new one
 - Verify each artifact file exists after writing before proceeding to next
+- **Spawn the matching reviewer subagent after each major artifact is written -- this is mandatory, not optional.** `spec-impact-reviewer` after proposal.md, `spec-architect` + `spec-security-auditor` in parallel after design.md. Tasks.md has no proposal-time review -- the apply-time dependency check is the source of truth for serial vs pipeline.
+- If a reviewer finds CRITICAL issues, fix them by editing the artifact before proceeding to the next one. Do not let issues accumulate.
+- MINOR / SUGGESTION issues may be deferred and noted in the final summary.
+- Tell the user they can `<Leader>+Down` into any spawned reviewer's child session to watch its tool calls live. Use `Right`/`Left` to cycle between concurrent sessions (e.g. architect + security auditor).

@@ -80,6 +80,37 @@ When starting work on a task that matches an available skill's scope, **call the
 
 Available skills are listed in the system prompt's `<available_skills>` block. Trigger on mentions of: bullmq, queue, background job, worker, Prisma query patterns, database setup, etc.
 
+## Subagents
+
+Custom subagents live in `.opencode/agents/`:
+
+**Apply-time (code review + parallel implementation):**
+
+- **`spec-reviewer`** -- read-only auditor (`edit: deny`, `bash: deny`). Reviews code against an OpenSpec delta spec + AGENTS.md conventions. Returns findings as CRITICAL / MINOR / SUGGESTION with `file:line` references. Invokable manually via `@spec-reviewer review these files: <paths>` (then mention the spec path).
+- **`spec-implementer`** -- scoped implementer (`edit: allow`, `bash: allow`) used in pipeline mode. Implements one task group at a time and returns the list of files it touched. Invokable manually via `@spec-implementer`.
+
+The `/opsx-apply` flow spawns `spec-reviewer` after each task group completes to audit the group's output before moving on. For independent groups, `spec-implementer` runs concurrently with `spec-reviewer` (hybrid serial/pipeline mode, decided by a dependency check between group pairs).
+
+**Proposal-time (artifact review before code is written):**
+
+- **`spec-impact-reviewer`** -- read-only (`edit: deny`, `bash: deny`). Reviews `proposal.md` for scope creep, breaking changes against existing `openspec/specs/`, missing migrations, and impact accuracy. Invokable manually via `@spec-impact-reviewer <proposal path>`.
+- **`spec-architect`** -- read-only. Reviews `design.md` for architecture quality, scalability, module boundaries, convention alignment, and integration with existing capabilities. Invokable manually via `@spec-architect <design path>`.
+- **`spec-security-auditor`** -- read-only. Reviews `design.md` for auth gaps, data exposure, input validation, dependency vulnerabilities, and configuration security. Invokable manually via `@spec-security-auditor <design path>`.
+- **`spec-task-planner`** -- removed. The `/opsx-apply` flow performs its own runtime dependency check (file overlap, symbol import, cross-reference cues) to decide serial vs pipeline mode, so a pre-computed task graph is not required.
+
+The `/opsx-propose` flow spawns these after each artifact is written: `spec-impact-reviewer` after `proposal.md`, `spec-architect` + `spec-security-auditor` in parallel after `design.md`. CRITICAL findings are fixed before proceeding to the next artifact.
+
+### Watching subagents live
+
+Every subagent spawn creates a **child session**. Navigate into it to watch its tool calls and reasoning in real time:
+
+| Keybind (default) | Action                                        |
+| ----------------- | --------------------------------------------- |
+| `<Leader>+Down`   | Enter the first child session from the parent |
+| `Right`           | Cycle to the next child session               |
+| `Left`            | Previous child session                        |
+| `Up`              | Return to the parent session                  |
+
 ## Diagrams
 
 Reference `diagrams/` for sequence and architecture diagrams before making design decisions:
