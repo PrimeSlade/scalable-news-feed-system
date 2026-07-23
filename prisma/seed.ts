@@ -73,6 +73,7 @@ async function main(): Promise<void> {
     const user = await prisma.user.create({
       data: {
         username: `user${i}`,
+        usernameNormalized: `user${i}`,
         displayName: `User ${i}`,
       },
     });

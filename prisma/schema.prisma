@@ -10,8 +10,10 @@ generator client {
 model User {
   id             String   @id @default(auto()) @map("_id") @db.ObjectId
   username       String   @unique
+  usernameNormalized String? @unique
   displayName    String
   avatarUrl      String?
+  passwordHash   String?
   followersCount Int      @default(0) // denormalized — gates the celebrity fan-out threshold
   followingCount Int      @default(0)
   createdAt      DateTime @default(now())
@@ -20,9 +22,25 @@ model User {
   posts      Post[]
   following  Follow[] @relation("Follower")
   followedBy Follow[] @relation("Followee")
+  authSessions AuthSession[]
 
   @@index([followersCount])
   @@map("users")
+}
+
+model AuthSession {
+  id        String    @id @default(uuid()) @map("_id")
+  userId    String    @db.ObjectId
+  user      User      @relation(fields: [userId], references: [id])
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("auth_sessions")
 }
 
 model Post {
