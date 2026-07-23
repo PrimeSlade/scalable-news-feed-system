@@ -1,0 +1,4 @@
+interface:
+  display_name: "Slade Apply"
+  short_description: "Implement and verify an approved change"
+  default_prompt: "Use $slade-apply to implement this approved Slade change and track verified outcomes."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Slade Propose"
+  short_description: "Draft and approve design and test artifacts"
+  default_prompt: "Use $slade-propose to draft the proposal and test plan for this explored change."

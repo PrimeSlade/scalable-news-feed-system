@@ -1,0 +1,4 @@
+interface:
+  display_name: "Slade Explore"
+  short_description: "Explore design choices with user control"
+  default_prompt: "Use $slade-explore to investigate this change in Plan mode and let me choose the design."

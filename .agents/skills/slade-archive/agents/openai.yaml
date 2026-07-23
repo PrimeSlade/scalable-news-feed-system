@@ -1,0 +1,4 @@
+interface:
+  display_name: "Slade Archive"
+  short_description: "Close and archive a completed Slade change"
+  default_prompt: "Use $slade-archive to verify and archive this completed Slade change."
