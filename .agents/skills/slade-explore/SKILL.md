@@ -11,7 +11,8 @@ before making design choices. Never edit files in this phase.
 ## Explore
 
 1. Ask for the desired outcome if it is unclear.
-2. Inspect relevant code, specs, diagrams, dependencies, and conventions read-only.
+2. Inspect relevant code, repository instructions, specs, diagrams, dependencies, and conventions
+   read-only.
 3. Summarize the current behavior, constraints, and unknowns.
 4. Present one consequential decision at a time with an interactive selector.
 5. Offer 2-3 viable options. State the main benefit, cost/risk, and a clearly labeled

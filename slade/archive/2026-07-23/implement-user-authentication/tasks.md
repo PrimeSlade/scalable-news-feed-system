@@ -1,6 +1,6 @@
 # Tasks: Implement User Authentication
 
-Change status: ACCEPTED_WITH_GAPS
+Change status: ARCHIVED
 
 - [x] SUCCESS TASK-001: Add approved auth dependencies and a manually validated auth configuration module that fails fast without exposing secrets. (tests: T-015)
 - [x] SUCCESS TASK-002: Implement access/refresh JWT issuance, hashing, and strict verification with independent HS256 secrets and required claims. (tests: T-006, T-015)

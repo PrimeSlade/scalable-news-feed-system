@@ -5,15 +5,16 @@ description: Implement an approved Slade change in Default mode, execute its agr
 
 # Slade Apply
 
-Work only in Default mode. Read `.agents/slade/artifact-contract.md`, then inspect the four
-artifacts in `sdd/changes/<change-name>/`.
+Work only in Default mode. Resolve `../../../slade/references/artifact-contract.md` relative to this
+`SKILL.md` and read it completely, then inspect the four artifacts in
+`slade/changes/<change-name>/` in the current repository.
 
 ## Approval gate
 
-Before editing application code, run:
+Resolve `../../../slade/scripts/validate-change.cjs` relative to this `SKILL.md`, then run:
 
 ```sh
-node .agents/slade/validate-change.cjs sdd/changes/<change-name> --phase apply
+node <resolved-validator-path> slade/changes/<change-name> --phase apply
 ```
 
 Stop on failure. Do not repair missing approvals by assuming user intent; return to
@@ -23,7 +24,7 @@ Stop on failure. Do not repair missing approvals by assuming user intent; return
 
 1. Work through one coherent task at a time.
 2. Change its state from `PENDING` to `IN_PROGRESS` before implementation.
-3. Preserve unrelated user changes and follow repository instructions.
+3. Preserve unrelated user changes and follow the current repository's instructions.
 4. Run linked tests and repository-required checks.
 5. Record commands and actual results in `test.md`.
 6. Mark a task `[x] SUCCESS` only when its agreed checks pass.

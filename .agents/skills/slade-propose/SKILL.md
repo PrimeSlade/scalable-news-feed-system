@@ -5,8 +5,9 @@ description: Turn an approved Slade exploration into concise proposal, decision,
 
 # Slade Propose
 
-Work only in Default mode. If the current mode is Plan, ask the user to switch and stop. Read
-`.agents/slade/artifact-contract.md` before writing artifacts.
+Work only in Default mode. If the current mode is Plan, ask the user to switch and stop. Resolve
+`../../../slade/references/artifact-contract.md` relative to this `SKILL.md` and read it completely before
+writing artifacts.
 
 ## Preconditions
 
@@ -16,7 +17,7 @@ Work only in Default mode. If the current mode is Plan, ask the user to switch a
 
 ## Create the change
 
-Create `sdd/changes/<change-name>/` and:
+Create `slade/changes/<change-name>/` in the current repository and:
 
 1. Write `decisions.md` from the approved exploration. Preserve options, selections,
    tradeoffs, and stable decision IDs. Record design approval.
@@ -36,10 +37,10 @@ relevant decision when proposal or test design exposes a consequential unresolve
 
 ## Handoff gate
 
-Run:
+Resolve `../../../slade/scripts/validate-change.cjs` relative to this `SKILL.md`, then run:
 
 ```sh
-node .agents/slade/validate-change.cjs sdd/changes/<change-name> --phase propose
+node <resolved-validator-path> slade/changes/<change-name> --phase propose
 ```
 
 Fix artifact errors with the user. When validation passes, tell the user to invoke:

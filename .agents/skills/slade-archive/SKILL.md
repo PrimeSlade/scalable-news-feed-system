@@ -5,15 +5,16 @@ description: Verify the final state of a completed or explicitly accepted Slade 
 
 # Slade Archive
 
-Work only in Default mode. Read `.agents/slade/artifact-contract.md` and inspect the change
-artifacts plus the relevant code diff.
+Work only in Default mode. Resolve `../../../slade/references/artifact-contract.md` relative to this
+`SKILL.md` and read it completely, then inspect the change artifacts and relevant code diff in the
+current repository.
 
 ## Close the change
 
-1. Run:
+1. Resolve `../../../slade/scripts/validate-change.cjs` relative to this `SKILL.md`, then run:
 
    ```sh
-   node .agents/slade/validate-change.cjs sdd/changes/<change-name> --phase archive
+   node <resolved-validator-path> slade/changes/<change-name> --phase archive
    ```
 
 2. Stop if tasks are active, approvals are missing, or unresolved gaps lack explicit outcome
@@ -21,7 +22,7 @@ artifacts plus the relevant code diff.
 3. Summarize delivered scope, task outcomes, test evidence, deviations, and remaining gaps.
 4. Ask for explicit archive confirmation.
 5. After confirmation, set `Change status: ARCHIVED` and move the directory to
-   `sdd/archive/YYYY-MM-DD/<change-name>/`.
+   `slade/archive/YYYY-MM-DD/<change-name>/`.
 
 Never convert failed, blocked, or skipped work into success. Archiving closes the record; it
 does not claim perfect completion.

@@ -1,6 +1,6 @@
 # Slade artifact contract
 
-Store active changes in `sdd/changes/<change-name>/`. Use lowercase hyphen-case names and four
+Store active changes in `slade/changes/<change-name>/`. Use lowercase hyphen-case names and four
 core files.
 
 ## `decisions.md`
