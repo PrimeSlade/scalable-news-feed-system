@@ -89,6 +89,9 @@ PORT=3000
 CELEBRITY_THRESHOLD=10000
 FEED_CACHE_TTL_SECONDS=10800
 NODE_ENV=development
+AUTH_ACCESS_TOKEN_SECRET="replace-with-at-least-32-bytes"
+AUTH_REFRESH_TOKEN_SECRET="replace-with-a-different-32-byte-secret"
+AUTH_ALLOWED_ORIGINS="http://localhost:3000"
 ```
 
 | Variable | Description | Default |
@@ -99,6 +102,15 @@ NODE_ENV=development
 | `CELEBRITY_THRESHOLD` | Follower count above which fan-out is skipped | `10000` |
 | `FEED_CACHE_TTL_SECONDS` | TTL for cached post content in Redis | `10800` (3 hours) |
 | `NODE_ENV` | `production` hides error details, `test` skips `app.listen()` | `development` |
+| `AUTH_ACCESS_TOKEN_SECRET` | HS256 access-token secret (32 bytes minimum) | Required outside tests |
+| `AUTH_REFRESH_TOKEN_SECRET` | Separate HS256 refresh-token secret (32 bytes minimum) | Required outside tests |
+| `AUTH_TOKEN_ISSUER` | Required JWT issuer | `scalable-news-feed-system` |
+| `AUTH_TOKEN_AUDIENCE` | Required JWT audience | `scalable-news-feed-client` |
+| `AUTH_ACCESS_TTL_SECONDS` | Access-token lifetime (60-3600 seconds) | `900` |
+| `AUTH_REFRESH_TTL_SECONDS` | Refresh-session lifetime | `604800` (7 days) |
+| `AUTH_BCRYPT_ROUNDS` | bcrypt work factor (10-15) | `12` |
+| `AUTH_ALLOWED_ORIGINS` | Comma-separated exact browser origins for refresh/logout | `http://localhost:3000` outside production |
+| `AUTH_COOKIE_SECURE` | Require HTTPS for the refresh cookie | `true` in production |
 
 ### Run
 
@@ -112,12 +124,37 @@ Server runs at `http://localhost:3000`. Swagger docs at `http://localhost:3000/a
 
 ## API
 
+### Register and authenticate
+
+```sh
+curl -i -c cookies.txt -X POST http://localhost:3000/v1/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"username":"alice","displayName":"Alice","password":"correct horse battery staple"}'
+```
+
+Registration and login return an access token in `data.accessToken` and set a rotating,
+HttpOnly refresh cookie. Use the access token as `Authorization: Bearer <token>` on protected
+requests. Refresh and logout also require an `Origin` header matching
+`AUTH_ALLOWED_ORIGINS`.
+
+For one transition release, `authorId` in post bodies and `userId` in feed queries are
+accepted but ignored. Token identity always wins, and both legacy fields are scheduled for
+removal in the next release.
+
+```sh
+curl -b cookies.txt -c cookies.txt -X POST http://localhost:3000/v1/auth/refresh \
+  -H "Origin: http://localhost:3000"
+
+curl -H "Authorization: Bearer <access-token>" http://localhost:3000/v1/me
+```
+
 ### Create a post
 
 ```sh
 curl -X POST http://localhost:3000/v1/feed \
   -H "Content-Type: application/json" \
-  -d '{"authorId":"507f1f77bcf86cd799439002","content":"Hello world"}'
+  -H "Authorization: Bearer <access-token>" \
+  -d '{"content":"Hello world"}'
 ```
 
 Response (`201`):
@@ -137,10 +174,12 @@ Response (`201`):
 
 ```sh
 # Page 1
-curl "http://localhost:3000/v1/me/feed?userId=507f1f77bcf86cd799439001&limit=20"
+curl -H "Authorization: Bearer <access-token>" \
+  "http://localhost:3000/v1/me/feed?limit=20"
 
 # Page 2 (use nextCursor from page 1)
-curl "http://localhost:3000/v1/me/feed?userId=507f1f77bcf86cd799439001&limit=20&cursor=1704110400000"
+curl -H "Authorization: Bearer <access-token>" \
+  "http://localhost:3000/v1/me/feed?limit=20&cursor=1704110400000"
 ```
 
 Response (`200`):
