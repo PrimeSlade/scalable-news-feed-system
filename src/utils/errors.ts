@@ -4,7 +4,7 @@ export class AppError extends Error {
     public statusCode: number = 500,
   ) {
     super(message);
-    Object.setPrototypeOf(this, AppError.prototype);
+    Object.setPrototypeOf(this, new.target.prototype);
   }
 }
 
@@ -23,6 +23,12 @@ export class ValidationError extends AppError {
 export class UnauthorizedError extends AppError {
   constructor(message = "Unauthorized") {
     super(message, 401);
+  }
+}
+
+export class ForbiddenError extends AppError {
+  constructor(message = "Forbidden") {
+    super(message, 403);
   }
 }
 
