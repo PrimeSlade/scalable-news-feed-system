@@ -35,6 +35,10 @@ vi.mock("../../lib/redis", () => ({
 import { prisma } from "../../lib/prisma";
 import { feedGenerationQueue } from "../../lib/queue";
 import app from "../../index";
+import { issueAccessToken } from "../auth/token.service";
+
+const authenticatedUserId = "507f1f77bcf86cd799439011";
+const authorization = `Bearer ${issueAccessToken(authenticatedUserId)}`;
 
 describe("POST /v1/feed", () => {
   const mockPost = {
@@ -57,6 +61,7 @@ describe("POST /v1/feed", () => {
 
     const res = await request(app)
       .post("/v1/feed")
+      .set("Authorization", authorization)
       .send({ content: "Hello world", authorId: "507f1f77bcf86cd799439011" })
       .expect(201);
 
@@ -74,6 +79,7 @@ describe("POST /v1/feed", () => {
   it("returns 400 when content is empty", async () => {
     const res = await request(app)
       .post("/v1/feed")
+      .set("Authorization", authorization)
       .send({ content: "", authorId: "507f1f77bcf86cd799439011" })
       .expect(400);
 
@@ -83,15 +89,15 @@ describe("POST /v1/feed", () => {
     });
   });
 
-  it("returns 400 when authorId is missing", async () => {
+  it("returns 401 when access authentication is missing", async () => {
     const res = await request(app)
       .post("/v1/feed")
       .send({ content: "Hello" })
-      .expect(400);
+      .expect(401);
 
     expect(res.body).toEqual({
       status: "error",
-      message: "authorId is required",
+      message: "Unauthorized",
     });
   });
 
@@ -100,6 +106,7 @@ describe("POST /v1/feed", () => {
 
     const res = await request(app)
       .post("/v1/feed")
+      .set("Authorization", authorization)
       .send({ content: longContent, authorId: "507f1f77bcf86cd799439011" })
       .expect(400);
 
@@ -128,6 +135,7 @@ describe("POST /v1/feed", () => {
 
     await request(app)
       .post("/v1/feed")
+      .set("Authorization", authorization)
       .send({ content: "Test", authorId: "507f1f77bcf86cd799439011" })
       .expect(201);
 
@@ -147,6 +155,7 @@ describe("POST /v1/feed", () => {
 
     await request(app)
       .post("/v1/feed")
+      .set("Authorization", authorization)
       .send({ content: "Test", authorId: "507f1f77bcf86cd799439011" })
       .expect(201);
 
@@ -160,18 +169,19 @@ describe("GET /v1/me/feed", () => {
     vi.mocked(prisma.follow.findMany).mockResolvedValue([]);
   });
 
-  it("returns 400 when userId is missing", async () => {
-    const res = await request(app).get("/v1/me/feed").expect(400);
+  it("returns 401 when feed authentication is missing", async () => {
+    const res = await request(app).get("/v1/me/feed").expect(401);
 
     expect(res.body).toEqual({
       status: "error",
-      message: "userId query parameter is required",
+      message: "Unauthorized",
     });
   });
 
   it("returns 400 for invalid limit", async () => {
     const res = await request(app)
       .get("/v1/me/feed")
+      .set("Authorization", authorization)
       .query({ userId: "user-1", limit: "0" })
       .expect(400);
 
@@ -184,6 +194,7 @@ describe("GET /v1/me/feed", () => {
   it("returns 200 with empty paginated feed when no posts", async () => {
     const res = await request(app)
       .get("/v1/me/feed")
+      .set("Authorization", authorization)
       .query({ userId: "user-1" })
       .expect(200);
 

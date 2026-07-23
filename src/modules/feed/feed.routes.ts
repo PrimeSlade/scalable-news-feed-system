@@ -1,5 +1,7 @@
 import { Router } from "express";
 import * as feedController from "./feed.controller";
+import { authenticateAccessToken } from "../../middleware/authenticate";
+import { asyncHandler } from "../../utils/async-handler";
 
 const router = Router();
 
@@ -10,6 +12,8 @@ const router = Router();
  *     summary: Create a new post
  *     description: Creates a post and fans it out to the author's followers via Redis.
  *     tags: [Feed]
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -17,12 +21,12 @@ const router = Router();
  *           schema:
  *             type: object
  *             required:
- *               - authorId
  *               - content
  *             properties:
  *               authorId:
  *                 type: string
- *                 description: The ID of the post author
+ *                 deprecated: true
+ *                 description: Ignored; author identity is derived from the bearer token and this field will be removed in the next release.
  *               content:
  *                 type: string
  *                 maxLength: 280
@@ -51,8 +55,14 @@ const router = Router();
  *                       type: string
  *                       format: date-time
  *       400:
- *         description: Validation error (missing authorId, empty content, or content too long)
+ *         description: Validation error (empty content or content too long)
+ *       401:
+ *         description: Missing or invalid access token
  */
-router.post("/", feedController.createPost);
+router.post(
+  "/",
+  authenticateAccessToken,
+  asyncHandler(feedController.createPost),
+);
 
 export default router;

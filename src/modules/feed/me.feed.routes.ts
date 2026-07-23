@@ -1,5 +1,7 @@
 import { Router } from "express";
 import * as feedController from "./feed.controller";
+import { authenticateAccessToken } from "../../middleware/authenticate";
+import { asyncHandler } from "../../utils/async-handler";
 
 const router = Router();
 
@@ -10,13 +12,17 @@ const router = Router();
  *     summary: Get user feed
  *     description: Returns a cursor-paginated feed of posts for the authenticated user.
  *     tags: [Feed]
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: userId
- *         required: true
+ *         required: false
  *         schema:
  *           type: string
- *         description: The user ID
+ *           deprecated: true
+ *         deprecated: true
+ *         description: Ignored; user identity is derived from the bearer token and this field will be removed in the next release.
  *       - in: query
  *         name: cursor
  *         required: false
@@ -70,8 +76,14 @@ const router = Router();
  *                       type: string
  *                       description: Composite cursor (timestamp_postId) for next page
  *       400:
- *         description: Validation error (missing userId, invalid limit)
+ *         description: Validation error (invalid limit)
+ *       401:
+ *         description: Missing or invalid access token
  */
-router.get("/feed", feedController.getFeed);
+router.get(
+  "/feed",
+  authenticateAccessToken,
+  asyncHandler(feedController.getFeed),
+);
 
 export default router;

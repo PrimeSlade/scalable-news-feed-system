@@ -17,9 +17,17 @@ const mockPost = {
 
 function mockReq(params: Record<string, unknown>) {
   if ("body" in params) {
-    return { body: params.body, query: {} } as Parameters<typeof createPost>[0];
+    return {
+      body: params.body,
+      query: {},
+      auth: { userId: "user-1" },
+    } as Parameters<typeof createPost>[0];
   }
-  return { body: {}, query: params } as Parameters<typeof getFeed>[0];
+  return {
+    body: {},
+    query: params,
+    auth: { userId: "user-1" },
+  } as Parameters<typeof getFeed>[0];
 }
 
 function mockRes() {
@@ -57,11 +65,19 @@ describe("feedController.createPost", () => {
     expect(res.status).toHaveBeenCalledWith(201);
   });
 
-  it("throws ValidationError when authorId is missing", async () => {
-    const req = mockReq({ body: { content: "Hello" } });
+  it("ignores a caller-supplied authorId", async () => {
+    vi.mocked(feedService.createPost).mockResolvedValue(mockPost);
+    const req = mockReq({
+      body: { content: "Hello", authorId: "attacker-selected-user" },
+    });
     const res = mockRes();
 
-    await expect(createPost(req, res)).rejects.toThrow("authorId is required");
+    await createPost(req, res);
+
+    expect(feedService.createPost).toHaveBeenCalledWith({
+      content: "Hello",
+      authorId: "user-1",
+    });
   });
 });
 
@@ -116,12 +132,20 @@ describe("feedController.getFeed", () => {
     );
   });
 
-  it("throws ValidationError when userId is missing", async () => {
-    const req = mockReq({});
+  it("ignores a caller-supplied userId", async () => {
+    vi.mocked(feedService.getFeed).mockResolvedValue({
+      posts: [],
+      hasMore: false,
+    });
+    const req = mockReq({ userId: "attacker-selected-user" });
     const res = mockRes();
 
-    await expect(getFeed(req, res)).rejects.toThrow(
-      "userId query parameter is required",
+    await getFeed(req, res);
+
+    expect(feedService.getFeed).toHaveBeenCalledWith(
+      "user-1",
+      undefined,
+      undefined,
     );
   });
 
