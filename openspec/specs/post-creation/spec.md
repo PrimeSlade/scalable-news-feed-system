@@ -6,13 +6,21 @@ Handles post creation with content validation, MongoDB persistence, and conditio
 
 ## Requirements
 
-### Requirement: Create a post
+### Requirement: Create a post as the authenticated user
 
 The system SHALL allow an authenticated user to create a post with content text, persist it to MongoDB, and trigger fan-out to followers.
 
 #### Scenario: Valid post creation
-- **WHEN** a user sends `POST /v1/posts` with `{ "content": "Hello world" }`
-- **THEN** the system saves the post to MongoDB with the author's userId, sets `createdAt` to current timestamp, enqueues a `feed-generation` BullMQ job with `{ postId, authorId, content, createdAt }`, and returns `201` with the created post
+- **WHEN** a user sends authenticated `POST /v1/feed` with `{ "content": "Hello world" }`
+- **THEN** the system saves the post using the access-token subject as `authorId`, sets `createdAt`, conditionally enqueues fan-out, and returns `201`
+
+#### Scenario: Legacy authorId cannot impersonate
+- **WHEN** authenticated user A sends `POST /v1/feed` with an `authorId` for user B
+- **THEN** the system ignores the deprecated `authorId` field and creates the post as user A
+
+#### Scenario: Missing authentication rejected
+- **WHEN** a caller sends `POST /v1/feed` without a valid access token
+- **THEN** the system returns `401`
 
 #### Scenario: Empty content rejected
 - **WHEN** a user sends `POST /v1/posts` with `{ "content": "" }`

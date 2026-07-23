@@ -12,12 +12,12 @@ The system SHALL return a user's feed as a cursor-paginated list of posts, order
 
 #### Scenario: First page request (no cursor)
 
-- **WHEN** a user sends `GET /v1/me/feed?userId={id}&limit=20` with no `cursor` parameter
+- **WHEN** an authenticated user sends `GET /v1/me/feed?limit=20` with no `cursor` parameter
 - **THEN** the system queries Redis ZSET `feed:{userId}` via `ZREVRANGE` for the 21 newest postIds (limit+1 for hasMore detection), and returns up to 20 posts
 
 #### Scenario: Subsequent page request (with cursor)
 
-- **WHEN** a user sends `GET /v1/me/feed?userId={id}&cursor=1680000000000&limit=20`
+- **WHEN** an authenticated user sends `GET /v1/me/feed?cursor=1680000000000&limit=20`
 - **THEN** the system queries Redis ZSET via `ZREVRANGEBYSCORE feed:{userId} (1680000000000 -inf LIMIT 0 21` (exclusive timestamp), returning the next page of older posts
 
 #### Scenario: Empty feed
@@ -76,6 +76,20 @@ The system SHALL merge recent posts from celebrities the user follows when those
 ### Requirement: Response format
 
 The system SHALL return a JSON response with status, data, and pagination metadata.
+
+### Requirement: Authenticated feed identity
+
+The system SHALL derive the feed owner from the verified access-token subject.
+
+#### Scenario: Deprecated userId is ignored
+
+- **WHEN** authenticated user A requests `/v1/me/feed?userId={userB}`
+- **THEN** the system returns user A's feed and ignores the deprecated query value
+
+#### Scenario: Missing authentication rejected
+
+- **WHEN** a caller requests `/v1/me/feed` without a valid access token
+- **THEN** the system returns `401`
 
 #### Scenario: Successful feed response
 
